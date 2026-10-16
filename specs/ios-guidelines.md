@@ -1,7 +1,7 @@
 # Spec: iOS guidelines skill (agent-agnostic)
 
 **Date:** 2026-10-15 · **Status:** Settled (grilling session)
-**Context:** A portable Agent Skill that tells coding agents (Claude Code, Codex, OpenCode, Pi) how to write and review iOS code in any project Jaim works on, including client projects. It is derived from the gap analysis of uguizu/ios-project-generator (`DotConfigs/docs/ios-guidelines/research/2026-10-ios-generator-gap-analysis.md`), used as inspiration only: no code or text is copied from that GPL-3.0 repo.
+**Context:** A portable Agent Skill that tells coding agents (Claude Code, Codex, OpenCode, Pi) how to write and review iOS code in any project Jaim works on, including client projects. It is derived from the gap analysis of uguizu/ios-project-generator (`research/ios/2026-10-ios-generator-gap-analysis.md`), used as inspiration only: no code or text is copied from that GPL-3.0 repo.
 
 ## Decisions
 
