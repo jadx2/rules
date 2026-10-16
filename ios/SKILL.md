@@ -1,6 +1,6 @@
 ---
 name: ios-guidelines
-description: Swift/iOS coding rules. Load before writing, changing or reviewing Swift or iOS code: SwiftUI or UIKit screens, view models, services, networking, tests, Xcode project or package changes.
+description: "Swift/iOS coding rules. Load before writing, changing or reviewing Swift or iOS code: SwiftUI or UIKit screens, view models, services, networking, tests, Xcode project or package changes."
 ---
 
 # iOS guidelines
