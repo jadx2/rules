@@ -1,7 +1,7 @@
 # Testing
 
-- Write new unit tests with Swift Testing (`@Test`, `#expect`), unless the project already uses XCTest for unit tests.
-- Use XCTest for UI and performance tests, unless the project already uses another UI test framework.
+- Write every new unit test with Swift Testing (`@Test`, `#expect`), even when the project already has XCTest unit tests. Both frameworks run in the same target, so leave existing XCTest tests alone unless asked to migrate them.
+- Use XCTest only for UI and performance tests; Apple keeps those APIs XCTest-only. Use another UI test framework if the project already does.
 - Add one `performAccessibilityAudit()` UI test per main screen, unless the project already has an accessibility testing convention.
 - Keep snapshot tests off, unless the project already opts in to snapshot testing.
 - Test view models and services, unless the project already has a different test scope.

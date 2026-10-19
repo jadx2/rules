@@ -55,7 +55,7 @@
 ### Design system and UI
 - **No default design system.** The project's token scheme comes from the client's Figma.
 - **Must:** named colors from the asset catalog only, never hard-coded hex values in views. Brand colors have increased-contrast variants.
-- **Default:** SwiftUI first. UIKit only behind `UIViewRepresentable`/`UIViewControllerRepresentable` for something SwiftUI can't do, with a one-line "why" comment. No storyboards or XIBs.
+- **Default:** SwiftUI first. UIKit behind `UIViewRepresentable`/`UIViewControllerRepresentable` only where it does the job clearly better (finer control, performance, a more mature API), with a one-line "why" comment. No storyboards or XIBs.
 - **Must:** follow an existing project's UI framework, and don't rewrite UIKit screens into SwiftUI without asking.
 
 ### Platform musts
@@ -69,8 +69,8 @@
 - **Safety:** no force unwraps or `try!` outside tests.
 
 ### Testing
-- **Default:** Swift Testing for new unit tests. In an XCTest project, new tests follow the project's framework.
-- **Default:** XCTest for UI and performance tests, including one `performAccessibilityAudit()` UI test per main screen.
+- **Default:** Swift Testing for every new unit test, including in XCTest projects; both frameworks share a target. Existing XCTest tests stay unless a migration is asked for.
+- **Default:** XCTest only for UI and performance tests, which Apple keeps XCTest-only (WWDC26 "Migrate to Swift Testing"), including one `performAccessibilityAudit()` UI test per main screen.
 - **Default:** snapshot tests off, allowed when a project opts in.
 - **Scope:** tests cover view models and services, with fakes injected through Factory's `.container` trait. Views are not unit-tested.
 

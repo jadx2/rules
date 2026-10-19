@@ -5,12 +5,12 @@ The SKILL.md musts (colors, UI framework, accessibility, localization) apply; th
 ## Design system and framework
 - Take design tokens (colors, type, spacing) from the client's Figma, unless the project already has a token scheme. No default design system exists.
 - Build UI in SwiftUI first, unless the project already uses UIKit for its screens.
-- Use UIKit only behind `UIViewRepresentable` or `UIViewControllerRepresentable` for something SwiftUI cannot do, with a one-line "why" comment, unless the project already has a convention for this.
+- Prefer SwiftUI. Drop to UIKit behind `UIViewRepresentable` or `UIViewControllerRepresentable` where UIKit does the job clearly better (finer control, performance, a more mature API), with a one-line "why" comment, unless the project already has a convention for this.
 - Write layouts in code, with no storyboards or XIBs, unless the project already uses them.
 
 ```swift
 struct MapView: UIViewRepresentable {
-    // MKMapView: SwiftUI Map lacks the custom overlay renderer needed here.
+    // MKMapView: custom overlay renderers give finer control than SwiftUI Map.
     func makeUIView(context: Context) -> MKMapView { MKMapView() }
     func updateUIView(_ view: MKMapView, context: Context) {}
 }
