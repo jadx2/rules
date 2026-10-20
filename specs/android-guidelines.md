@@ -15,7 +15,7 @@
 - **No copied text.** Rules are written from primary sources.
 
 ### Toolchain and SDK levels
-- **Default:** minSdk 26; compileSdk and targetSdk at the latest stable API (36 at spec time; recheck, see Deferred). Latest stable Kotlin and AGP. Why: `java.time` without desugaring and no compat noise, matching MyWalkup.
+- **Default:** minSdk 26; compileSdk and targetSdk at the latest stable API (37 since Android 17 went stable on 2026-06-16; the skill says to check rather than naming a number). Latest stable Kotlin and AGP. Why: `java.time` without desugaring and no compat noise, matching MyWalkup.
 - **Must:** never change Kotlin, KSP, AGP, Gradle, minSdk, compileSdk or targetSdk without asking, including a Kotlin version pinned through the `buildscript` classpath. Raising targetSdk handles that level's behavior changes in the same change.
 - **Must (AGP 9+):** use AGP's built-in Kotlin. New modules don't apply `org.jetbrains.kotlin.android`. Use KSP; `com.android.legacy-kapt` only for a processor without KSP support. Compiler options go in `kotlin { compilerOptions }`, not `android.kotlinOptions`. Never add the opt-out flags `android.builtInKotlin=false`, `android.newDsl=false` or `android.disallowKotlinSourceSets=false`. Verify: grep build files and `gradle.properties`.
 - **Must:** dependencies live in the version catalog, never hard-coded in module build files.
@@ -153,7 +153,7 @@
 - **Default:** `runTest`, a main-dispatcher rule or extension, Turbine for genuine streams. `StateFlow` assertions check the final `uiState.value` or latest item, never an intermediate emission (conflation).
 - **Default:** backtick sentence names in JVM tests (Robolectric included); `subject_condition_expected` in `androidTest`.
 - **Default:** one Compose UI test per main screen against `ScreenContent`, with `enableAccessibilityChecks()`, in `test` on Robolectric unless it needs a device. Find nodes by semantics (text, role, content description); `testTag` only when semantics can't single the node out. Screens with saved state get a `StateRestorationTester` check. `HiltAndroidRule` is `order = 0`.
-- **Default:** screenshot tests off. When a project opts in: Roborazzi, or Compose Preview Screenshot Testing on AGP 9.5+. Never upgrade AGP for it. Paparazzi up to 2.0.0-alpha04 breaks on AGP 9.
+- **Default:** screenshot tests off. When a project opts in: Roborazzi (1.56.0+ on AGP 9), or Compose Preview Screenshot Testing (experimental; AGP 9.0+ for IDE support). Never upgrade AGP for it. On AGP 9, Paparazzi only from 2.0.0-alpha05.1.
 - **Must:** test doubles live in test source sets, never in `main`. `runTest`, not `runBlocking`.
 
 ### Tooling
@@ -186,4 +186,11 @@ Not split. Estimate: about 11 files and 400 lines (SKILL.md plus about 10 refere
 - Kotlin Multiplatform, Wear, TV, Auto and widgets.
 - Detekt, revisited when 2.0 is stable.
 - React Native rules: same repo, separate spec.
-- Unverified research claims, recheck before relying on them: the scope of the Navigation "maintenance mode" caution, Android 17 not recreating activities on configuration changes, the 16 KB deadline dates, the minSdk 26 device share, and whether API 37 is the latest stable compileSdk (Google's alpha Styles skill already requires it). The `hiltViewModel` import: `androidx.hilt.lifecycle.viewmodel.compose` is current per Google's Navigation 3 recipe; the old `androidx.hilt.navigation.compose` one's deprecation is still unconfirmed.
+- Research claims, rechecked against primary sources on 2026-10-19:
+  - Latest stable API: 37 (Android 17, stable 2026-06-16; android-developers.googleblog.com/2026/06/Android-17.html). Play requires target API 36 for new apps and updates since 2026-08-31, extendable to 2026-11-01 (developer.android.com/google/play/requirements/target-sdk).
+  - 16 KB pages: from 2027-02-01, Play rejects updates without 16 KB support for apps targeting API 35+ on 64-bit devices (developer.android.com/guide/practices/page-sizes). The older 2025/2026 dates are stale.
+  - minSdk 26 device share: unconfirmed. Google no longer publishes a version table; use Play Console "Reach and devices" or the Android Studio new-project wizard.
+  - Android 17 configuration changes: activities no longer restart for keyboard, navigation, touchscreen and color-mode changes (opt back in with `android:recreateOnConfigChanges`); rotation and resizing still recreate (developer.android.com/guide/topics/resources/runtime-changes). Separately, apps targeting 37 have orientation and resize locks ignored on displays with smallest width ≥ 600dp (developer.android.com/about/versions/17/changes/ff-restrictions-ignored).
+  - Navigation "maintenance mode": the caution covers the whole `androidx.navigation` library, Navigation Compose included (developer.android.com/jetpack/androidx/releases/navigation).
+  - `hiltViewModel`: Hilt 1.3.0-alpha02 moved it to `androidx.hilt.lifecycle.viewmodel.compose` and deprecated the `androidx.hilt.navigation.compose` one (developer.android.com/jetpack/androidx/releases/hilt; `@Deprecated` in androidx source).
+  - Screenshot tools on AGP 9: Compose Preview Screenshot Testing needs AGP 8.5+ (9.0+ for IDE support) and is experimental (developer.android.com/studio/preview/compose-screenshot-testing); Paparazzi supports AGP 9 from 2.0.0-alpha05.1 (cashapp/paparazzi CHANGELOG); Roborazzi from 1.56.0 (takahirom/roborazzi releases).
