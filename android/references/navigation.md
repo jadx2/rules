@@ -7,7 +7,7 @@ The SKILL.md musts (`@Serializable` routes, callbacks instead of `NavController`
 - Return results to a previous screen as state (Google's results-as-state recipe), unless the project already has a result mechanism. Avoid the in-memory `ResultEventBus`: it loses results on process death.
 - Top-level destinations use `NavigationSuiteScaffold`, unless the project already has its own scaffold.
 - On Navigation 3, multi-pane layouts use `ListDetailSceneStrategy`/`SupportingPaneSceneStrategy` with entry metadata, not `ListDetailPaneScaffold`, unless the project already uses the latter.
-- On Navigation 3 the key does not reach `SavedStateHandle`: pass it through an assisted Hilt factory, unless the project already has another way. Google's Navigation 3 recipe imports `hiltViewModel` from `androidx.hilt.lifecycle.viewmodel.compose`.
+- On Navigation 3 the key does not reach `SavedStateHandle`: pass it through an assisted Hilt factory, unless the project already has another way. Import `hiltViewModel` from `androidx.hilt.lifecycle.viewmodel.compose`; the `androidx.hilt.navigation.compose` one is deprecated since Hilt 1.3.0.
 
 ```kotlin
 @HiltViewModel(assistedFactory = DetailViewModel.Factory::class)
