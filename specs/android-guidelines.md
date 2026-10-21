@@ -3,6 +3,7 @@
 **Date:** 2026-10-19 · **Status:** Settled (grilling session)
 **Context:** A portable Agent Skill that tells coding agents how to write and review Android (Kotlin, Jetpack Compose) code in any project Jaim works on, including client projects. It is derived from the gap analysis of EdwinLovo/android-claude-toolkit (`research/android/2026-10-android-toolkit-gap-analysis.md`), used as inspiration only: the toolkit has no LICENSE, so no text or code is copied from it.
 **Revised 2026-10-19** against Google's official skills (github.com/android/skills @ `ed0a272`, Apache-2.0): JUnit 4 default, AGP 9 build rules, Navigation 3 and back-handling updates, security and permissions, edge-to-edge and Compose performance gaps. Rules are still written in our own words, citing the skill path as the source.
+**Revised 2026-10-21** after an independent review of seven rules against current Android, Compose, Play and library sources (`research/android/portable-rules-evaluation-review.md`, `…-verdict.md`): stability annotations, `rememberUpdatedState`, root insets, Photo Picker, consumer keep rules, version catalog and serializer rules narrowed or reclassified.
 
 ## Decisions
 
@@ -18,7 +19,8 @@
 - **Default:** minSdk 26; compileSdk and targetSdk at the latest stable API (37 since Android 17 went stable on 2026-06-16; the skill says to check rather than naming a number). Latest stable Kotlin and AGP. Why: `java.time` without desugaring and no compat noise, matching MyWalkup.
 - **Must:** never change Kotlin, KSP, AGP, Gradle, minSdk, compileSdk or targetSdk without asking, including a Kotlin version pinned through the `buildscript` classpath. Raising targetSdk handles that level's behavior changes in the same change.
 - **Must (AGP 9+):** use AGP's built-in Kotlin. New modules don't apply `org.jetbrains.kotlin.android`. Use KSP; `com.android.legacy-kapt` only for a processor without KSP support. Compiler options go in `kotlin { compilerOptions }`, not `android.kotlinOptions`. Never add the opt-out flags `android.builtInKotlin=false`, `android.newDsl=false` or `android.disallowKotlinSourceSets=false`. Verify: grep build files and `gradle.properties`.
-- **Must:** dependencies live in the version catalog, never hard-coded in module build files.
+- **Must:** declare dependencies through the project's existing mechanism; never hard-code versions in module build files when the project centralizes them elsewhere.
+- **Default:** new projects use a version catalog.
 
 ### Module structure
 - **Default:** new projects start as a single `:app` module. Why: some apps are small and don't need modules.
@@ -73,11 +75,11 @@
 - **Default:** top-level destinations use `NavigationSuiteScaffold`. On Navigation 3, multi-pane layouts use `ListDetailSceneStrategy`/`SupportingPaneSceneStrategy` with entry metadata, not `ListDetailPaneScaffold`.
 
 ### Data layer and networking
-- **Default:** Retrofit 3 + OkHttp + kotlinx.serialization converter. Apollo Kotlin for GraphQL, Ktor only for KMP. Existing projects keep their library.
+- **Default:** Retrofit 3 + OkHttp + kotlinx.serialization converter. Apollo Kotlin for GraphQL, Ktor only for KMP. Existing projects keep their networking library and serializer.
 - **Default:** repositories call the service directly. A data source class is added only when coordinating several sources (remote + local). Offline-first when the app has a local cache: the local store is the source of truth.
 - **Default:** repositories return a sealed result, e.g. `ApiResult<T>` = `Success(data)` / `Failure(error: DataError)`, with `DataError` a sealed type (Network, Unauthorized, Server(code), Serialization, Unknown). No `Loading` case. Composition over a `BaseRepository` base class.
 - **Must:** never swallow `CancellationException`; serialization failures are caught and typed; a 204 is a success; raw `e.message` or `errorBody()` text never reaches users (the UI maps `DataError` to string resources).
-- **Must:** DTOs are `@Serializable` data-layer types mapped to domain models, never in domain or UI signatures. No Gson in new code.
+- **Must:** DTOs are data-layer types mapped to domain models, never in domain or UI signatures. Use the project's serializer; never introduce a second serializer or migrate without asking.
 - **Must:** no hard-coded base URLs or keys in source; no secrets in source or committed `gradle.properties`.
 
 ### Dependency injection
@@ -95,10 +97,10 @@
 - **Must:** composables below the screen entry receive state and lambdas, never a ViewModel, `NavController` or back stack.
 - **Must:** reusable UI composables take `modifier: Modifier = Modifier` as the first optional parameter and apply it to the root.
 - **Must:** lazy list items pass a stable `key` and, for mixed item types, a `contentType`.
-- **Must:** lifecycle reactions use `LifecycleResumeEffect`/`LifecycleStartEffect`/`LifecycleEventEffect`, and effects calling lambda params use `rememberUpdatedState`.
-- **Must:** never add `@Immutable`, `@Stable` or `ImmutableList` to models that hold collections. Why: strong skipping (default since Kotlin 2.0.20) already skips on instance equality; the annotations force an O(n) `equals` on every recomposition. Flat token classes may stay `@Immutable`.
+- **Must:** lifecycle reactions use `LifecycleResumeEffect`/`LifecycleStartEffect`/`LifecycleEventEffect`. For keyed effects, a lambda parameter is read through `rememberUpdatedState` when changing it must not restart the effect, and used as a key when changing it should.
+- **Must:** with strong skipping (default since Kotlin 2.0.20), don't add `@Immutable`, `@Stable` or `ImmutableList` to collection-bearing models; preserve collection instances instead. Why: making an unstable parameter stable switches instance comparison to `equals`, which can walk the collection whenever a different instance arrives. Exception only when the stability contract is valid, the reference cannot be preserved and benchmarks show structural comparison beats recomposition. Existing annotations are not changed merely to comply. Collection-free classes may keep valid `@Immutable`.
 - **Must:** custom modifiers use `Modifier.Node`/`ModifierNodeElement`, never `Modifier.composed`.
-- **Must:** no experimental or alpha Compose APIs (Material 3 Expressive, Styles, Grid/FlexBox, `mediaQuery`) and no new `@OptIn` or module-wide opt-in flag without asking. Check the project's Compose version before using an API that needs a newer one.
+- **Must:** no experimental Compose APIs requiring an opt-in, alpha Compose APIs, new `@OptIn` annotations or module-wide opt-in flags without asking. Check the project's Compose version before using an API that needs a newer one.
 - **Default:** small `private` helper composables may share a file; a composable used from two places gets its own file and becomes `internal`. No one-component-per-file must.
 
 ### Previews
@@ -123,7 +125,7 @@
 - **Default:** per-app language support via `generateLocaleConfig` in apps with more than one locale.
 
 ### Platform musts
-- **Must:** edge-to-edge enabled (`enableEdgeToEdge()`), insets applied once, never `systemBarsPadding()` on a NavHost or root.
+- **Must:** edge-to-edge enabled (`enableEdgeToEdge()`), each inset applied once. When screens should draw behind system bars, no system-bar padding on the whole NavHost or root; insets are applied per screen or component. Root padding is valid when keeping all content within safe bounds is intentional.
 - **Must:** lists take insets through `contentPadding`, never `Modifier.padding`. `NavigationSuiteScaffold` and `ListDetailPaneScaffold` don't pass insets down: each screen applies its own, never `safeDrawingPadding` on the scaffold.
 - **Must:** IME insets applied exactly once: `adjustResize` in the manifest, `imePadding()` before `verticalScroll`, and no `imePadding()` under a Scaffold whose `contentWindowInsets` already include the IME.
 - **Must:** back handling only through navigation (Navigation 3's built-in back on Nav3), `NavigationBackHandler` (`androidx.navigationevent`), or `BackHandler`/`PredictiveBackHandler` where the project already uses them. No `onBackPressed` overrides; never set `enableOnBackInvokedCallback="false"`.
@@ -134,13 +136,13 @@
 
 ### Security and permissions
 - **Must:** runtime permissions (including `POST_NOTIFICATIONS` on API 33+) are requested in context with a handled denial: show a rationale when `shouldShowRequestPermissionRationale` says so, send the user to app settings after a permanent denial, never loop requests or cache grant state. Background location is a separate request after foreground is granted.
-- **Must:** media selection uses the Photo Picker (`PickVisualMedia`), not `READ_MEDIA_*`. No `QUERY_ALL_PACKAGES` (declare `<queries>`), no `MANAGE_EXTERNAL_STORAGE`, `USE_EXACT_ALARM` only for alarm or calendar apps, and every foreground service declares a `foregroundServiceType`. Verify: grep the manifest.
+- **Must:** the Photo Picker (`PickVisualMedia`) for user-selected photos and videos. `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO` only when broad library access is essential to core functionality and system pickers are insufficient, with Play's declaration and review requirements met. A permission-based gallery on Android 14+ targeting API 34+ handles partial access and reselection with `READ_MEDIA_VISUAL_USER_SELECTED`. No `QUERY_ALL_PACKAGES` (declare `<queries>`), no `MANAGE_EXTERNAL_STORAGE`, `USE_EXACT_ALARM` only for alarm or calendar apps, and every foreground service declares a `foregroundServiceType`. Verify: review manifest grep hits.
 - **Must:** components are `exported="false"` unless another app needs them. `PendingIntent`s use `FLAG_IMMUTABLE`; a mutable one gets an explicit component. Dynamic receivers register with `RECEIVER_NOT_EXPORTED`.
 - **Must:** never launch an Intent taken from extras without validating it (`IntentSanitizer` or package/exported checks). `onNewIntent` calls `setIntent` and validates like `onCreate`.
 
 ### R8
 - **Must:** a library that uses reflection or serialization comes with verified R8 keep rules and a tested minified release build.
-- **Must:** keep rules are narrow and class-specific. Never `-keep class pkg.** { *; }`, `!` inversions, `-dontoptimize`/`-dontobfuscate`/`-dontshrink` or `android.enableR8.fullMode=false`. No rules for libraries that ship their own (AndroidX, kotlinx, coroutines, Retrofit 2.9+) or for Activity and View classes. Under full mode, `-keep class A` doesn't keep the no-arg constructor; write `{ <init>(); }`.
+- **Must:** keep rules are narrow and class-specific. Never `-keep class pkg.** { *; }`, `!` inversions, `-dontoptimize`/`-dontobfuscate`/`-dontshrink` or `android.enableR8.fullMode=false`. Don't duplicate consumer rules the exact artifact/version already bundles (check `META-INF/proguard/`, `META-INF/com.android.tools/`, `proguard.txt`); add only missing, verified narrow rules. AndroidX, kotlinx.coroutines, kotlinx.serialization (except named companions), Retrofit 2.10+ and Gson 2.11+ bundle theirs. No rules for Activity and View classes. Under full mode, `-keep class A` doesn't keep the no-arg constructor; write `{ <init>(); }`.
 
 ### Environments and configuration
 - **Default:** one `environment` flavor dimension (`dimension = "environment"`; `setDimension` is gone in AGP 9) with `dev`, `qa`, `prod` product flavors; `applicationIdSuffix` `.dev`/`.qa`; base URLs via `buildConfigField` (needs `buildFeatures { buildConfig = true }`; String values carry escaped quotes); app name and launcher icon per flavor in `src/<flavor>/res`; `debug`/`release` build types. Release sets `isMinifyEnabled`, `isShrinkResources` and `proguard-android-optimize.txt` explicitly (AGP 9 rejects `proguard-android.txt`).
@@ -194,3 +196,6 @@ Not split. Estimate: about 11 files and 400 lines (SKILL.md plus about 10 refere
   - Navigation "maintenance mode": the caution covers the whole `androidx.navigation` library, Navigation Compose included (developer.android.com/jetpack/androidx/releases/navigation).
   - `hiltViewModel`: Hilt 1.3.0-alpha02 moved it to `androidx.hilt.lifecycle.viewmodel.compose` and deprecated the `androidx.hilt.navigation.compose` one (developer.android.com/jetpack/androidx/releases/hilt; `@Deprecated` in androidx source).
   - Screenshot tools on AGP 9: Compose Preview Screenshot Testing needs AGP 8.5+ (9.0+ for IDE support) and is experimental (developer.android.com/studio/preview/compose-screenshot-testing); Paparazzi supports AGP 9 from 2.0.0-alpha05.1 (cashapp/paparazzi CHANGELOG); Roborazzi from 1.56.0 (takahirom/roborazzi releases).
+  - Retrofit's bundled R8 full-mode rules for generic signatures of `Call`, `Response` and service return types first shipped in 2.10.0 (2024-03-18); 2.9.0 (2020-05-20) bundled rules but lacked them (square/retrofit CHANGELOG and `retrofit2.pro` history).
+  - Google's stability pages now caution against `@Immutable`/`@Stable`/`ImmutableList` on collection-holding models and allow them only when the instance reference cannot be preserved and benchmarks confirm a gain (developer.android.com/develop/ui/compose/performance/stability/fix, 2026-10-21).
+  - Play's Photo and Video Permissions policy covers `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO` only, allows them when system pickers cannot serve core functionality, and exempts private and enterprise device-management apps (support.google.com/googleplay/android-developer/answer/16935362).
