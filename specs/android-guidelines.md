@@ -16,7 +16,7 @@
 - **No copied text.** Rules are written from primary sources.
 
 ### Toolchain and SDK levels
-- **Default:** minSdk 26; compileSdk and targetSdk at the latest stable API (37 since Android 17 went stable on 2026-06-16; the skill says to check rather than naming a number). Latest stable Kotlin and AGP. Why: `java.time` without desugaring and no compat noise, matching MyWalkup.
+- **Default:** minSdk 26; compileSdk and targetSdk at the latest stable API (37 since Android 17 went stable on 2026-06-16; the skill says to check rather than naming a number). Latest stable Kotlin and AGP. Why: `java.time` without desugaring and no compat noise, matching existing client projects.
 - **Must:** never change Kotlin, KSP, AGP, Gradle, minSdk, compileSdk or targetSdk without asking, including a Kotlin version pinned through the `buildscript` classpath. Raising targetSdk handles that level's behavior changes in the same change.
 - **Must (AGP 9+):** use AGP's built-in Kotlin. New modules don't apply `org.jetbrains.kotlin.android`. Use KSP; `com.android.legacy-kapt` only for a processor without KSP support. Compiler options go in `kotlin { compilerOptions }`, not `android.kotlinOptions`. Never add the opt-out flags `android.builtInKotlin=false`, `android.newDsl=false` or `android.disallowKotlinSourceSets=false`. Verify: grep build files and `gradle.properties`.
 - **Must:** declare dependencies through the project's existing mechanism; never hard-code versions in module build files when the project centralizes them elsewhere.
@@ -182,7 +182,7 @@ Not split. Estimate: about 11 files and 400 lines (SKILL.md plus about 10 refere
 ## Non-goals / Deferred
 - Global install, trigger lines and per-tool load checks (dropped for iOS too).
 - Changing, forking or upstreaming fixes to EdwinLovo/android-claude-toolkit.
-- Migrating client projects (MyWalkup's toolkit-style rules, Nelnet's Fragment/XML stack) toward the defaults.
+- Migrating client projects (e.g. toolkit-style rules, a Fragment/XML stack) toward the defaults.
 - A new-project generator, template or scaffolding skills (the toolkit's "primitives").
 - Choosing CI, signing, Play publishing or crash-reporting tools.
 - Kotlin Multiplatform, Wear, TV, Auto and widgets.

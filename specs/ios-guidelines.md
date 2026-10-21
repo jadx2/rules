@@ -29,7 +29,7 @@
 - **Must:** no `ObservableObject` in new code, unless the project already uses it.
 
 ### Dependency injection
-- **Default:** Factory 3. Services are registered as protocols. View models and services use `@Injected`, views never resolve services, and test suites use the `.container` trait. Why: compile-time safe, Swift Testing support, and consistency with MyWalkup.
+- **Default:** Factory 3. Services are registered as protocols. View models and services use `@Injected`, views never resolve services, and test suites use the `.container` trait. Why: compile-time safe, Swift Testing support, and consistency with existing client projects.
 - **`@Entry` (environment)** only for values that depend on the view-tree position, such as a per-tab router, and only when that need comes up.
 - **Audit:** any DI is accepted, but a view that resolves services directly is flagged.
 
