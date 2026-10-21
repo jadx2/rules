@@ -2,7 +2,7 @@
 
 The SKILL.md musts (`CancellationException`, typed failures, DTO separation, no hard-coded URLs or keys) apply; this file adds the how.
 
-- Use Retrofit 3 + OkHttp + the kotlinx.serialization converter, unless the project already uses another networking library.
+- Use Retrofit 3 + OkHttp unless the project already uses another networking library. Use kotlinx.serialization for DTOs and its converter when using Retrofit, unless the project already uses another serializer.
 - Use Apollo Kotlin for GraphQL, unless the project already uses another client. Use Ktor only for KMP.
 - Repositories call the service directly, unless the project already has data sources. Add a data source class only when coordinating several sources (remote + local).
 - Go offline-first when the app has a local cache: the local store is the source of truth, unless the project already has another caching approach.
