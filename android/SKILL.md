@@ -18,8 +18,8 @@ description: "Kotlin/Android coding rules. Load before writing, changing or revi
 - When you raise targetSdk, handle that level's behavior changes in the same change.
 - On AGP 9+, use AGP's built-in Kotlin: new modules don't apply `org.jetbrains.kotlin.android`. Use KSP; `com.android.legacy-kapt` only for a processor without KSP support. Compiler options go in `kotlin { compilerOptions }`, not `android.kotlinOptions`. Never add `android.builtInKotlin=false`, `android.newDsl=false` or `android.disallowKotlinSourceSets=false`.
   - Verify: grep build files and `gradle.properties` for `org.jetbrains.kotlin.android`, `kotlinOptions` and those three flags.
-- Dependencies live in the version catalog, never hard-coded in module build files.
-  - Verify: `rg '"[a-z0-9.-]+:[a-z0-9.-]+:[0-9]' --glob '*.gradle.kts'` returns nothing.
+- Declare dependencies through the project's existing mechanism; don't hard-code versions in module build files when the project centralizes them elsewhere.
+  - Verify: where the project centralizes versions, review new `rg '"[a-z0-9.-]+:[a-z0-9.-]+:[0-9]' --glob '*.gradle.kts'` hits for versions that bypass that mechanism.
 
 ### Modules
 - Put new code in the module the structure implies. Never create a module without asking.
@@ -39,7 +39,7 @@ description: "Kotlin/Android coding rules. Load before writing, changing or revi
 ### Data and networking
 - Never swallow `CancellationException`. Catch serialization failures and map them to a typed error (`DataError.Serialization`). Treat a 204 as success. Raw `e.message` or `errorBody()` text never reaches users: the UI maps `DataError` to string resources.
   - Verify: review every `catch (e: Exception|Throwable)` (`rg -U 'catch \(e: (Exception|Throwable)\)'`); `rg 'e\.message|errorBody\(\)'` feeds no UI text.
-- DTOs are `@Serializable` data-layer types mapped to domain models, never in domain or UI signatures. No Gson in new code.
+- DTOs are data-layer types mapped to domain models, never in domain or UI signatures. Use the project's serializer; don't introduce a second serializer or migrate without asking.
   - Verify: `rg 'retrofit2|Dto\b'` under domain and UI packages.
 - No hard-coded base URLs or keys in source. No secrets in source or committed `gradle.properties`.
 
@@ -59,11 +59,11 @@ description: "Kotlin/Android coding rules. Load before writing, changing or revi
   - Verify: compose-lints `ComposeViewModelForwarding`.
 - Lazy list items pass a stable `key` and, for mixed item types, a `contentType`.
   - Verify: `rg -U -P 'items\((?![^)]*\bkey\s*=)'` in changed files returns nothing.
-- Lifecycle reactions use `LifecycleResumeEffect`/`LifecycleStartEffect`/`LifecycleEventEffect`. Effects that call lambda params use `rememberUpdatedState`.
+- Lifecycle reactions use `LifecycleResumeEffect`/`LifecycleStartEffect`/`LifecycleEventEffect`. For keyed effects, read a lambda parameter through `rememberUpdatedState` when changing it must not restart the effect; use the lambda as a key when changing it should restart the effect.
   - Verify: no new `LifecycleEventObserver` in composables.
-- Never add `@Immutable`, `@Stable` or `ImmutableList` to models that hold collections: strong skipping (default since Kotlin 2.0.20) already skips on instance equality, and the annotations force an O(n) `equals` on every recomposition. Classes without collection fields (e.g. theme tokens) may keep `@Immutable`.
+- With strong skipping (default since Kotlin 2.0.20), don't add `@Immutable`, `@Stable` or `ImmutableList` to collection-bearing models; preserve collection instances instead. Making an otherwise unstable parameter stable switches instance comparison to `equals`, which can walk the collection whenever a different instance arrives. Make an exception only when the stability contract is valid, the collection reference cannot be preserved and benchmarks show structural comparison beats recomposition. Don't change existing annotations or collection types merely to comply with this rule. Collection-free classes (e.g. theme tokens) may keep valid `@Immutable`.
 - Custom modifiers use `Modifier.Node`/`ModifierNodeElement`, never `Modifier.composed`.
-- No experimental or alpha Compose APIs (Material 3 Expressive, Styles, Grid/FlexBox, `mediaQuery`) and no new `@OptIn` or module-wide opt-in flag without asking. Check the project's Compose version before using an API that needs a newer one.
+- No experimental Compose APIs requiring an opt-in, alpha Compose APIs, new `@OptIn` annotations or module-wide opt-in flags without asking. Check the project's Compose version before using an API that needs a newer one.
 
 ### Theme and icons
 - No literal colors (`Color(0x...)`, `Color.Red`) or hard-coded `.dp` design values in composables; values come from theme tokens. Repeated values become tokens.
@@ -80,7 +80,7 @@ description: "Kotlin/Android coding rules. Load before writing, changing or revi
   - Verify: UI tests with `enableAccessibilityChecks()` pass.
 
 ### Platform
-- Enable edge-to-edge (`enableEdgeToEdge()`) and apply insets once; never `systemBarsPadding()` on a NavHost or root.
+- Enable edge-to-edge (`enableEdgeToEdge()`) and apply each inset once. When screens should draw behind system bars, don't apply system-bar padding to the whole NavHost or root; apply the required insets per screen or component. Root padding is valid when keeping all content within safe bounds is intentional.
   - Verify: the activity calls `enableEdgeToEdge()`; review `rg 'systemBarsPadding\(\)'` hits.
 - Lists take insets through `contentPadding`, never `Modifier.padding`. `NavigationSuiteScaffold` and `ListDetailPaneScaffold` don't pass insets down: each screen applies its own, never `safeDrawingPadding` on the scaffold.
 - Apply IME insets exactly once: `adjustResize` in the manifest, `imePadding()` before `verticalScroll`, no `imePadding()` under a Scaffold whose `contentWindowInsets` already include the IME.
@@ -95,14 +95,14 @@ description: "Kotlin/Android coding rules. Load before writing, changing or revi
 ### Security and permissions
 - Request runtime permissions (including `POST_NOTIFICATIONS` on API 33+) in context with handled denial: rationale when `shouldShowRequestPermissionRationale` says so, app settings after a permanent denial, never loop requests or cache grant state. Background location is a separate request after foreground is granted.
   - Verify: each dangerous `<uses-permission>` has a request call site with denial handling.
-- Media selection uses the Photo Picker (`PickVisualMedia`), not `READ_MEDIA_*`. No `QUERY_ALL_PACKAGES` (declare `<queries>`), no `MANAGE_EXTERNAL_STORAGE`, `USE_EXACT_ALARM` only for alarm or calendar apps, and every foreground service declares a `foregroundServiceType`.
+- Use the Photo Picker (`PickVisualMedia`) for user-selected photos and videos. Request `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO` only when broad library access is essential to core functionality and system pickers are insufficient; satisfy applicable Play declaration and review requirements. For a permission-based gallery on Android 14+ targeting API 34+, handle partial access and reselection with `READ_MEDIA_VISUAL_USER_SELECTED`. No `QUERY_ALL_PACKAGES` (declare `<queries>`), no `MANAGE_EXTERNAL_STORAGE`, `USE_EXACT_ALARM` only for alarm or calendar apps, and every foreground service declares a `foregroundServiceType`.
   - Verify: `rg 'READ_MEDIA_|QUERY_ALL_PACKAGES|MANAGE_EXTERNAL_STORAGE|USE_EXACT_ALARM'` in manifests; every foreground `<service>` has a `foregroundServiceType`.
 - Components are `exported="false"` unless another app needs them. `PendingIntent`s use `FLAG_IMMUTABLE`; a mutable one gets an explicit component. Dynamic receivers register with `RECEIVER_NOT_EXPORTED`.
 - Never launch an Intent taken from extras without validating it (`IntentSanitizer` or package/exported checks). `onNewIntent` calls `setIntent` and validates like `onCreate`.
 
 ### R8
 - When adding a library that uses reflection or serialization, confirm it ships consumer rules or add verified narrow ones, and test a minified release build.
-- Keep rules are narrow and class-specific. Never `-keep class pkg.** { *; }`, `!` inversions, `-dontoptimize`/`-dontobfuscate`/`-dontshrink` or `android.enableR8.fullMode=false`. No rules for libraries that ship their own (AndroidX, kotlinx, coroutines, Retrofit 2.9+) or for Activity and View classes. Under full mode `-keep class A` doesn't keep the no-arg constructor; write `{ <init>(); }`.
+- Keep rules are narrow and class-specific. Never `-keep class pkg.** { *; }`, `!` inversions, `-dontoptimize`/`-dontobfuscate`/`-dontshrink` or `android.enableR8.fullMode=false`. Don't duplicate consumer rules the exact artifact/version already bundles: check its JAR or AAR (`META-INF/proguard/`, `META-INF/com.android.tools/`, `proguard.txt`) and add only missing, verified narrow rules. AndroidX, kotlinx.coroutines, kotlinx.serialization (except named companions), Retrofit 2.10+ and Gson 2.11+ bundle theirs. No rules for Activity and View classes. Under full mode `-keep class A` doesn't keep the no-arg constructor; write `{ <init>(); }`.
 
 ### Configuration
 - Read required config once at startup and fail fast with a clear message.
