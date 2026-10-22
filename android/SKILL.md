@@ -31,8 +31,8 @@ description: "Kotlin/Android coding rules. Load before writing, changing or revi
   - Verify: `rg 'Channel<|MutableSharedFlow<' --glob '*ViewModel.kt'` returns nothing in new code.
 
 ### Navigation
-- Routes are `@Serializable` types (`NavKey` on Navigation 3, `data object`/`data class` on 2.x). No string routes in new code.
-  - Verify: `rg 'route = "'` returns nothing in new code.
+- Routes are `@Serializable` types (`NavKey` on Navigation 3, `data object`/`data class` on Navigation Compose 2.8+). No string routes in new code on those versions; older 2.x and Fragment/XML graphs keep their existing route or Safe Args style.
+  - Verify: on those stacks and versions, `rg 'route = "'` returns nothing in new code.
 - Screens expose navigation callbacks (`onBack`, `onOpenDetail: (Id) -> Unit`); the nav graph wires them. Screen composables never receive `NavController` or the back stack.
 - On Navigation 3, pass `entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), rememberViewModelStoreNavEntryDecorator())` to `NavDisplay`, so ViewModels and saved state are scoped per entry. The list replaces the defaults, so name both.
 
@@ -62,7 +62,7 @@ description: "Kotlin/Android coding rules. Load before writing, changing or revi
 - Lifecycle reactions use `LifecycleResumeEffect`/`LifecycleStartEffect`/`LifecycleEventEffect`. For keyed effects, read a lambda parameter through `rememberUpdatedState` when changing it must not restart the effect; use the lambda as a key when changing it should restart the effect.
   - Verify: no new `LifecycleEventObserver` in composables.
 - With strong skipping (default since Kotlin 2.0.20), don't add `@Immutable`, `@Stable` or `ImmutableList` to collection-bearing models; preserve collection instances instead. Making an otherwise unstable parameter stable switches instance comparison to `equals`, which can walk the collection whenever a different instance arrives. Make an exception only when the stability contract is valid, the collection reference cannot be preserved and benchmarks show structural comparison beats recomposition. Don't change existing annotations or collection types merely to comply with this rule. Collection-free classes (e.g. theme tokens) may keep valid `@Immutable`.
-- Custom modifiers use `Modifier.Node`/`ModifierNodeElement`, never `Modifier.composed`.
+- Custom modifier behavior uses `Modifier.Node`/`ModifierNodeElement`; a factory that only chains existing modifiers needs no Node. Never `Modifier.composed`.
 - No experimental Compose APIs requiring an opt-in, alpha Compose APIs, new `@OptIn` annotations or module-wide opt-in flags without asking. Check the project's Compose version before using an API that needs a newer one.
 
 ### Theme and icons
@@ -77,32 +77,32 @@ description: "Kotlin/Android coding rules. Load before writing, changing or revi
 - Format numbers, currency and dates locale-aware.
   - Verify: review `rg 'String\.format\(|SimpleDateFormat\('` hits that build user-visible text.
 - Touch targets are at least 48dp. Every icon-only control has a `contentDescription` from resources (`null` when decorative) or a click label.
-  - Verify: UI tests with `enableAccessibilityChecks()` pass.
+  - Verify: instrumented UI tests on API 34+ with `enableAccessibilityChecks()` pass.
 
 ### Platform
 - Enable edge-to-edge (`enableEdgeToEdge()`) and apply each inset once. When screens should draw behind system bars, don't apply system-bar padding to the whole NavHost or root; apply the required insets per screen or component. Root padding is valid when keeping all content within safe bounds is intentional.
   - Verify: the activity calls `enableEdgeToEdge()`; review `rg 'systemBarsPadding\(\)'` hits.
 - Lists take insets through `contentPadding`, never `Modifier.padding`. `NavigationSuiteScaffold` and `ListDetailPaneScaffold` don't pass insets down: each screen applies its own, never `safeDrawingPadding` on the scaffold.
 - Apply IME insets exactly once: `adjustResize` in the manifest, `imePadding()` before `verticalScroll`, no `imePadding()` under a Scaffold whose `contentWindowInsets` already include the IME.
-- Handle back only through navigation (Navigation 3's built-in back) or `NavigationBackHandler` (`androidx.navigationevent`). Use `BackHandler`/`PredictiveBackHandler` only where the project already does. Never override `onBackPressed` or set `enableOnBackInvokedCallback="false"`.
+- Handle back only through navigation (Navigation 3's built-in back), `NavigationBackHandler` (`androidx.navigationevent`) in Compose, or `OnBackPressedCallback` in View/Fragment code. Use `BackHandler`/`PredictiveBackHandler` only where the project already does. Never override `onBackPressed` or set `enableOnBackInvokedCallback="false"`.
   - Verify: `rg 'override fun onBackPressed'`.
 - Never add `screenOrientation` locks or `resizeableActivity="false"` without asking. If a client asks for a lock, apply it on phones only. Layouts adapt through window size classes, never device-type checks.
   - Verify: `rg 'screenOrientation|resizeableActivity'` in manifests shows no new hits.
-- UI state lives in the ViewModel or `rememberSaveable`; don't rely on `onCreate` re-running after configuration changes.
+- UI state that must survive configuration changes lives in the ViewModel or `rememberSaveable`; don't rely on `onCreate` re-running after configuration changes.
 - Apps that ship native libraries support 16 KB pages.
-  - Verify: APK Analyzer, or `zipalign -c -P 16 -v 4 app-release.apk`.
+  - Verify: ELF segment alignment with `check_elf_alignment.sh`, APK alignment with `zipalign -c -P 16 -v 4 app-release.apk`, and a run on a 16 KB device or emulator.
 
 ### Security and permissions
 - Request runtime permissions (including `POST_NOTIFICATIONS` on API 33+) in context with handled denial: rationale when `shouldShowRequestPermissionRationale` says so, app settings after a permanent denial, never loop requests or cache grant state. Background location is a separate request after foreground is granted.
   - Verify: each dangerous `<uses-permission>` has a request call site with denial handling.
-- Use the Photo Picker (`PickVisualMedia`) for user-selected photos and videos. Request `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO` only when broad library access is essential to core functionality and system pickers are insufficient; satisfy applicable Play declaration and review requirements. For a permission-based gallery on Android 14+ targeting API 34+, handle partial access and reselection with `READ_MEDIA_VISUAL_USER_SELECTED`. No `QUERY_ALL_PACKAGES` (declare `<queries>`), no `MANAGE_EXTERNAL_STORAGE`, `USE_EXACT_ALARM` only for alarm or calendar apps, and every foreground service declares a `foregroundServiceType`.
+- Use the Photo Picker (`PickVisualMedia`) for user-selected photos and videos. Request `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO` only when broad library access is essential to core functionality and system pickers are insufficient; satisfy applicable Play declaration and review requirements. For a permission-based gallery on Android 14+ targeting API 34+, handle partial access and reselection with `READ_MEDIA_VISUAL_USER_SELECTED`. `QUERY_ALL_PACKAGES` (prefer `<queries>`) and `MANAGE_EXTERNAL_STORAGE` only when narrower alternatives cannot satisfy core functionality, after asking and meeting applicable policy, declaration and review requirements; `USE_EXACT_ALARM` only for alarm, timer or calendar apps; every foreground service declares a `foregroundServiceType`.
   - Verify: `rg 'READ_MEDIA_|QUERY_ALL_PACKAGES|MANAGE_EXTERNAL_STORAGE|USE_EXACT_ALARM'` in manifests; every foreground `<service>` has a `foregroundServiceType`.
-- Components are `exported="false"` unless another app needs them. `PendingIntent`s use `FLAG_IMMUTABLE`; a mutable one gets an explicit component. Dynamic receivers register with `RECEIVER_NOT_EXPORTED`.
+- Components are `exported="false"` unless another app needs them. `PendingIntent`s use `FLAG_IMMUTABLE`; a mutable one gets an explicit component. Dynamic receivers use `RECEIVER_NOT_EXPORTED` unless their expected senders (other apps, or privileged system senders such as Bluetooth and telephony) require `RECEIVER_EXPORTED`; use separate receivers when both flags are needed, and protect exported receivers with a permission or a sender check.
 - Never launch an Intent taken from extras without validating it (`IntentSanitizer` or package/exported checks). `onNewIntent` calls `setIntent` and validates like `onCreate`.
 
 ### R8
 - When adding a library that uses reflection or serialization, confirm it ships consumer rules or add verified narrow ones, and test a minified release build.
-- Keep rules are narrow and class-specific. Never `-keep class pkg.** { *; }`, `!` inversions, `-dontoptimize`/`-dontobfuscate`/`-dontshrink` or `android.enableR8.fullMode=false`. Don't duplicate consumer rules the exact artifact/version already bundles: check its JAR or AAR (`META-INF/proguard/`, `META-INF/com.android.tools/`, `proguard.txt`) and add only missing, verified narrow rules. AndroidX, kotlinx.coroutines, kotlinx.serialization (except named companions), Retrofit 2.10+ and Gson 2.11+ bundle theirs. No rules for Activity and View classes. Under full mode `-keep class A` doesn't keep the no-arg constructor; write `{ <init>(); }`.
+- Keep rules are narrow and class-specific. Never `-keep class pkg.** { *; }`, `!` inversions, `-dontoptimize`/`-dontobfuscate`/`-dontshrink` or `android.enableR8.fullMode=false`. Don't duplicate consumer rules the exact artifact/version already bundles: check its JAR or AAR (`META-INF/proguard/`, `META-INF/com.android.tools/`, `proguard.txt`) and add only missing, verified narrow rules. AndroidX, kotlinx.coroutines, kotlinx.serialization (except named companions), Retrofit 2.10+ and Gson 2.11+ bundle theirs. No redundant rules for Activity and View entry points already covered by generated or default rules. Under full mode `-keep class A` doesn't keep the no-arg constructor; write `{ <init>(); }`.
 
 ### Configuration
 - Read required config once at startup and fail fast with a clear message.
@@ -115,7 +115,7 @@ description: "Kotlin/Android coding rules. Load before writing, changing or revi
   - Verify: each command ran and exited 0.
 
 ### Logging
-- No `android.util.Log` or `println` in production code. No personal data, tokens or full request/response bodies in logs; `HttpLoggingInterceptor` at `BODY` in debug builds only.
+- No `android.util.Log` or `println` in production code. No personal data, tokens or full request/response bodies in logs; the one exception is `HttpLoggingInterceptor` at `BODY`, in debug builds only.
   - Verify: `rg 'println\(|\bLog\.(v|d|i|w|e|wtf)\('` under `src/main` returns nothing (`Log` priority constants are fine).
 
 ## Defaults (reference files)

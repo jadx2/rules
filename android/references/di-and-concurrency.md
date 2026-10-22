@@ -8,7 +8,7 @@ The SKILL.md musts (no second DI library, injected dispatchers, no `GlobalScope`
 - Prefer a custom `@Qualifier` over `@Named`, unless the project already uses `@Named`.
 - Add scopes only for shared state, unless the project already scopes differently.
 - Put Hilt modules next to what they bind, unless the project already centralizes them.
-- DI audit: flag composables that resolve dependencies directly.
+- DI audit: flag composables below the screen entry that resolve dependencies directly.
 
 ## Concurrency
 - Combine flows with `combine`/`stateIn` and use `flatMapLatest` for query-driven loads, unless the project already has another convention.

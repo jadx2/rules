@@ -4,7 +4,7 @@ The SKILL.md musts (`@Serializable` routes, callbacks instead of `NavController`
 
 - Use Navigation 3 for new Compose projects. Existing projects keep their library (Navigation Compose 2.x, Fragment/XML); never migrate without asking.
 - Navigation that depends on logic is a UI-state flag the screen observes, acts on through its callback, and clears, unless the project already has a navigation-action mechanism. No `ViewModelNav`/`NavigationAction` delegate as a default.
-- Return results to a previous screen as state (Google's results-as-state recipe), unless the project already has a result mechanism. Avoid the in-memory `ResultEventBus`: it loses results on process death.
+- Return results to a previous screen as state, unless the project already has a result mechanism. Avoid the in-memory `ResultEventBus`. A result that must survive process death is persisted (`rememberSaveable`, a `SavedStateHandle` or the `NavKey`), whatever carries it.
 - Top-level destinations use `NavigationSuiteScaffold`, unless the project already has its own scaffold.
 - On Navigation 3, multi-pane layouts use `ListDetailSceneStrategy`/`SupportingPaneSceneStrategy` with entry metadata, not `ListDetailPaneScaffold`, unless the project already uses the latter.
 - On Navigation 3 the key does not reach `SavedStateHandle`: pass it through an assisted Hilt factory, unless the project already has another way. Import `hiltViewModel` from `androidx.hilt.lifecycle.viewmodel.compose`; the `androidx.hilt.navigation.compose` one is deprecated since Hilt 1.3.0.
@@ -27,4 +27,4 @@ entry<DetailRoute> { route ->
 }
 ```
 
-- Use `NavigationBackHandler` for new back handling outside navigation, unless the project already uses `BackHandler` or `PredictiveBackHandler`.
+- In Compose, use `NavigationBackHandler` for new back handling outside navigation, unless the project already uses `BackHandler` or `PredictiveBackHandler`.
